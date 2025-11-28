@@ -1,0 +1,21 @@
+swagger: '2.0'
+info:
+  title: Breely API Gateway
+  description: Proxies requests to the secure n8n webhook.
+  version: 1.0.0
+schemes:
+  - https
+produces:
+  - application/json
+paths:
+  /onboard:
+    post:
+      summary: Forwards client onboarding requests.
+      operationId: forwardOnboardingRequest
+      x-google-backend:
+        address: https://<YOUR_GATEWAY_URL> # Replace with your breely-api-gateway URL
+      responses:
+        '200':
+          description: A successful response
+          schema:
+            type: string

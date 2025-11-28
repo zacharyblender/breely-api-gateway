@@ -13,7 +13,7 @@ paths:
       summary: Forwards client onboarding requests.
       operationId: forwardOnboardingRequest
       x-google-backend:
-        address: https://<YOUR_GATEWAY_URL> # Replace with your breely-api-gateway URL
+        address: https://breely-api-gateway-535002965287.us-central1.run.app # Replace with your breely-api-gateway URL
       responses:
         '200':
           description: A successful response

@@ -51,8 +51,12 @@ def forward_request(request):
         print("Error: N8N_WEBHOOK_URL is not configured.")
         return ("Internal Server Error: Webhook URL not set", 500)
 
+    # Get the raw body data
+    raw_body = request.get_data(as_text=True)
+    print(f"Received raw request body: {raw_body}")
+
     # Get the JSON body from the incoming request
-    request_json = request.get_json(silent=True)
+    request_json = request.get_json(force=True, silent=True)
     if not request_json:
         return ("Bad Request: No JSON body provided.", 400)
 
@@ -80,12 +84,13 @@ def forward_request(request):
         print(f"An unexpected error occurred: {e}")
         return ("Internal Server Error", 500)
 
-def breely_gateway(request):
+from flask import Flask, request as flask_request
+
+app = Flask(__name__)
+
+@app.route('/', methods=['POST'])
+def breely_gateway():
     """
     Cloud Function entry point.
     """
-    # We only allow POST requests
-    if request.method != 'POST':
-        return ('Method Not Allowed', 405)
-        
-    return forward_request(request)
+    return forward_request(flask_request)

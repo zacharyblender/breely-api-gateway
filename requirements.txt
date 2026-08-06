@@ -1,4 +1,5 @@
-requests
-google-cloud-secret-manager
-Flask
-gunicorn
+Flask>=2.3.2
+gunicorn>=21.2.0
+requests>=2.31.0
+google-cloud-secret-manager>=2.20.0
+google-cloud-storage>=2.14.0

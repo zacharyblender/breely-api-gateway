@@ -13,7 +13,29 @@ paths:
       summary: Forwards client onboarding requests.
       operationId: forwardOnboardingRequest
       x-google-backend:
-        address: https://breely-api-gateway-535002965287.us-central1.run.app # Replace with your breely-api-gateway URL
+        address: https://breely-api-gateway-535002965287.us-central1.run.app
+      responses:
+        '200':
+          description: A successful response
+          schema:
+            type: string
+  /reschedule:
+    post:
+      summary: Forwards appointment reschedule requests.
+      operationId: forwardRescheduleRequest
+      x-google-backend:
+        address: https://breely-api-gateway-535002965287.us-central1.run.app/reschedule
+      responses:
+        '200':
+          description: A successful response
+          schema:
+            type: string
+  /cancel:
+    post:
+      summary: Forwards appointment cancellation requests.
+      operationId: forwardCancelRequest
+      x-google-backend:
+        address: https://breely-api-gateway-535002965287.us-central1.run.app/cancel
       responses:
         '200':
           description: A successful response

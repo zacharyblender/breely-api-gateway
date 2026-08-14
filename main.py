@@ -26,6 +26,11 @@ DEDUPE_ENABLED = os.environ.get("DEDUPE_ENABLED", "1") == "1"
 # gateway's service account off a HIPAA-protected bucket it otherwise has no reason to touch.
 DEDUPE_BUCKET = os.environ.get("DEDUPE_BUCKET", "phoenix-health-breely-dedupe")
 DEDUPE_PREFIX = os.environ.get("DEDUPE_PREFIX", "breely-dedupe")
+# Copy of each delivery to the Scheduler board, so live bookings appear there before the
+# Breely cutover. Unset means off, mirroring the SCHEDULER_BASE kill-switch convention.
+SCHEDULER_INGEST_URL = os.environ.get("SCHEDULER_INGEST_URL")
+SCHEDULER_SECRET_NAME = os.environ.get("SCHEDULER_SECRET_NAME", "scheduler-internal-api-secret")
+SCHEDULER_TIMEOUT_SECONDS = float(os.environ.get("SCHEDULER_TIMEOUT_SECONDS", "5"))
 
 print("--- BREELY-GATEWAY V2.0 (SCALE-TO-ZERO) STARTING UP ---")
 
@@ -105,6 +110,48 @@ except Exception as e:
     print(f"FATAL: Could not fetch n8n credentials on startup. Error: {e}")
 
 
+_scheduler_secret = None
+
+
+def scheduler_secret():
+    """The Scheduler's INTERNAL_API_SECRET, fetched once and cached per instance.
+
+    Fetched lazily rather than at cold start like the n8n credentials above: those are
+    deliberately fatal because the gateway has no job without them, whereas a missing
+    Scheduler secret must only disable the copy.
+    """
+    global _scheduler_secret
+    if _scheduler_secret is None:
+        _scheduler_secret = get_secret(SCHEDULER_SECRET_NAME)
+    return _scheduler_secret
+
+
+def copy_to_scheduler(request_json, route):
+    """Best-effort copy of one delivery to the Scheduler board.
+
+    Everything about this call is subordinate to the n8n forward. Breely reads any non-2xx
+    as a delivery failure and retries the whole booking, so the Scheduler must never be able
+    to change the status, body, or latency Breely sees: one short timeout, no retries, every
+    exception swallowed. The GCS claim above has already been won, so a Breely redelivery
+    does not reach here twice.
+    """
+    if not SCHEDULER_INGEST_URL:
+        return
+    try:
+        response = requests.post(
+            SCHEDULER_INGEST_URL,
+            json={"route": route, "payload": request_json},
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {scheduler_secret()}",
+            },
+            timeout=SCHEDULER_TIMEOUT_SECONDS,
+        )
+        print(f"Scheduler copy of {route} returned {response.status_code}")
+    except Exception as e:
+        print(f"WARNING: Scheduler copy of {route} failed, continuing to n8n: {e}")
+
+
 def forward_request(request, dest_url, route):
     """
     Forwards a request from Breely to the given n8n webhook URL, adding Basic Auth.
@@ -131,6 +178,8 @@ def forward_request(request, dest_url, route):
         event_id = (request_json.get("event") or {}).get("id")
         print(f"Duplicate delivery of {route} event {event_id} ignored.")
         return ("Duplicate delivery ignored.", 200)
+
+    copy_to_scheduler(request_json, route)
 
     try:
         def derive_health_url():
